@@ -68,3 +68,10 @@ This document records how Codex is used during implementation.
 - Manual confirmation points: the local app starts only on `localhost`, the initial page does not show an error state, completed sessions can accept a new requirement, TXT/MD-only table-analysis requests receive a CSV/XLSX prompt, and sales analysis with `sample_sales.csv` renders a ranked table, chart, and business insights.
 - Installed version: `streamlit 1.48.0`.
 - Verification result: the complete suite passed with 129 tests, all three executable demos completed successfully, bytecode compilation passed under Python 3.9, and `git diff --check` passed.
+
+## 2026-06-03 - Stage 6 delivery documentation
+
+- Used Codex to add the running guide, environment example, decision log, and final acceptance status notes.
+- Kept the stage scoped to documentation and delivery checks only. No business tools, core architecture changes, remote configuration, or push operations were added.
+- Verification commands: `.venv/bin/python -m pytest`, `.venv/bin/python -m examples.run_demo_workflow`, `.venv/bin/python -m examples.run_document_qa_workflow`, `.venv/bin/python -m examples.run_data_analysis_workflow`, `PYTHONPYCACHEPREFIX=.cache/pycache .venv/bin/python -m compileall .`, `git diff --check`, local Git identity checks, `git status --short`, and `git log --oneline`.
+- Verification result: the complete suite passed with 129 tests, all three executable demos completed successfully, bytecode compilation passed under Python 3.9, `git diff --check` passed, and the local Git identity was confirmed as `lls-777 <279362506+lls-777@users.noreply.github.com>`.

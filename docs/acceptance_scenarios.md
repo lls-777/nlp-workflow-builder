@@ -1,6 +1,16 @@
 # MVP Acceptance Scenarios
 
-This document defines the five P0 acceptance scenarios used to verify the workflow contracts. Stage 3 only records and statically validates these workflows. Except for the summary demo completed in stage 2, the remaining business handlers are implemented in later stages.
+This document defines the five P0 acceptance scenarios used to verify the workflow contracts and the current MVP delivery status.
+
+## Current Implementation Status
+
+| Scenario | Status |
+| --- | --- |
+| Uploaded document summary | Executable |
+| Document question answering | Executable |
+| Sales table analysis | Executable |
+| FAQ customer question simulation | Executable |
+| Weekly report request | Downgraded to one immediate report |
 
 ## 1. Uploaded Document Summary
 
@@ -44,9 +54,9 @@ When the user asks for a shorter summary, a table format, or additional suggesti
 - Execution starts only after confirmation.
 - A revision creates a new workflow version and preserves prior runs.
 
-### Current stage note
+### Current implementation status
 
-The contract is statically validated in stage 3. The TXT and MD summary path is already executable through the stage 2 offline demo.
+Executable. The app and demo can run `read_document -> generate_text` for uploaded documents.
 
 ## 2. Uploaded Document Question Answering
 
@@ -90,9 +100,9 @@ A new question reuses the same workflow version as a new run. Changes to the sou
 - The workflow contains no network step.
 - Insufficient evidence produces a clear refusal instead of an invented answer.
 
-### Current stage note
+### Current implementation status
 
-Stage 3 validates the contract only. Document chunking, retrieval, and evidence-based answering are implemented in stage 4A.
+Executable. The workflow reads documents, chunks them, retrieves relevant excerpts, answers with citations, and refuses when evidence is insufficient.
 
 ## 3. Sales Table Analysis
 
@@ -138,9 +148,9 @@ When the user changes the metric, grouping, filter, ranking, or chart type, crea
 - The workflow contains no generated code or dynamic expression field.
 - The chart step returns a specification for later UI rendering.
 
-### Current stage note
+### Current implementation status
 
-Stage 3 validates the contract only. CSV/XLSX handling and declarative analysis are implemented in stage 4B.
+Executable. CSV/XLSX input runs through declarative table reading, profiling, filtering, aggregation, sorting, chart spec generation, and business insight generation.
 
 ## 4. FAQ Customer Question Simulation
 
@@ -182,9 +192,9 @@ A new customer question starts another run of the same workflow. Changes to the 
 - The workflow contains no dedicated customer-service agent or tool.
 - The answer includes supporting FAQ excerpts.
 
-### Current stage note
+### Current implementation status
 
-Stage 3 validates the contract only. The shared retrieval and evidence-answering handlers are implemented in stage 4A.
+Executable. FAQ customer questions reuse the same document QA path and do not introduce a separate customer-service Agent or tool.
 
 ## 5. Weekly Report Request Downgraded to One Immediate Run
 
@@ -226,6 +236,6 @@ If the user accepts the immediate alternative, return to requirements collection
 - The user receives an explicit boundary explanation and an executable alternative.
 - The resulting workflow performs one immediate run only.
 
-### Current stage note
+### Current implementation status
 
-Stage 3 validates the accepted one-time fallback contract. Background repetition remains explicitly out of scope.
+Downgraded to one immediate report. Background repetition remains explicitly out of scope.
