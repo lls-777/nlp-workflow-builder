@@ -48,3 +48,12 @@ This document records how Codex is used during implementation.
 - Manual confirmation points: the sales workflow completes all seven registered steps, returns a ranked table and `chart_spec`, generates deterministic mock business insights, and runtime logs contain identifiers and statuses without table rows.
 - Installed versions: `pandas 2.2.3` and `openpyxl 3.1.5`.
 - Verification result: the complete suite passed with 95 tests, all three executable demos completed successfully, bytecode compilation passed, and the runtime log safety scan passed.
+
+## 2026-06-02 - Stage 4.5 service layer and local persistence
+
+- Used Codex to add the rule-based Planner, single Orchestrator service, UUID-based upload storage, prompt templates, and sqlite3 persistence for sessions, workflow versions, runs, and step runs.
+- Kept the service layer narrow: Planner only clarifies, creates, and revises workflows; Orchestrator coordinates state transitions, Executor calls, and local records; FileStore accepts safe local uploads; SQLite stores JSON snapshots and summaries without an ORM.
+- Added explicit state handling for a new document question as a new run of the current workflow version. Workflow feedback creates `version + 1` and reruns the complete workflow after confirmation.
+- Verification commands: `.venv/bin/python -m pytest`, `.venv/bin/python -m examples.run_demo_workflow`, `.venv/bin/python -m examples.run_document_qa_workflow`, and `.venv/bin/python -m examples.run_data_analysis_workflow`.
+- Manual confirmation points: sqlite3 contains only the four scoped tables, uploaded files receive UUID names, path traversal and symlink escapes are rejected, weekly requests require one-time fallback acceptance, workflow feedback creates `version + 1`, and a new document question reuses the current workflow version while creating a new run.
+- Verification result: the complete suite passed with 115 tests, all three executable demos completed successfully, project-source bytecode compilation passed under Python 3.9, and `git diff --check` passed.
