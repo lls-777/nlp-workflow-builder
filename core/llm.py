@@ -42,6 +42,12 @@ class MockLLMClient:
         bullet_count: Optional[int] = None,
         max_length: Optional[int] = None,
     ) -> str:
+        if task == "business_insights":
+            return _generate_mock_business_insights(
+                materials,
+                bullet_count=bullet_count,
+            )
+
         text = _normalize_materials(materials)
         if not text:
             raise LLMError("Cannot generate text because the provided materials are empty.")
@@ -239,7 +245,9 @@ def _extract_text_parts(value: Any) -> Iterable[str]:
         if isinstance(content, str):
             yield content
             return
-        for item in value.values():
+        for key, item in value.items():
+            if key in {"path", "source_path"}:
+                continue
             yield from _extract_text_parts(item)
         return
     if isinstance(value, Iterable):
@@ -253,3 +261,47 @@ def _split_sentences(text: str) -> List[str]:
         for sentence in re.split(r"(?<=[.!?])\s+|(?<=[。！？])", text)
         if sentence.strip()
     ]
+
+
+def _generate_mock_business_insights(
+    materials: Any,
+    *,
+    bullet_count: Optional[int],
+) -> str:
+    records = _find_table_records(materials)
+    if not records:
+        raise LLMError("Cannot generate business insights because table records are empty.")
+
+    count = bullet_count if bullet_count is not None else min(3, len(records))
+    points = [
+        ", ".join(f"{key}={value}" for key, value in record.items())
+        for record in records[:count]
+    ]
+    highest_ranked = points[0]
+    bullet_lines = "\n".join(f"- {point}" for point in points)
+    return (
+        "Business insights:\n"
+        f"{bullet_lines}\n\n"
+        "Recommendation:\n"
+        f"- Prioritize the highest-ranked result: {highest_ranked}"
+    )
+
+
+def _find_table_records(value: Any) -> List[Mapping[str, Any]]:
+    if isinstance(value, Mapping):
+        records = value.get("records")
+        if isinstance(records, list) and all(
+            isinstance(record, Mapping) for record in records
+        ):
+            return records
+        for item in value.values():
+            nested_records = _find_table_records(item)
+            if nested_records:
+                return nested_records
+        return []
+    if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
+        for item in value:
+            nested_records = _find_table_records(item)
+            if nested_records:
+                return nested_records
+    return []

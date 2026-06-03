@@ -38,3 +38,13 @@ This document records how Codex is used during implementation.
 - Manual confirmation points: document QA and FAQ workflows both execute through the same registered steps, relevant questions return safe citations without absolute paths, unrelated questions refuse to answer with `citations=[]`, and runtime logs contain no document text or API key.
 - Installed versions: `pypdf 6.12.2`, `python-docx 1.2.0`, and `scikit-learn 1.6.1`.
 - Verification result: the complete suite passed with 62 tests, both executable demos completed successfully, bytecode compilation passed, and the runtime log safety scan passed.
+
+## 2026-06-02 - Stage 4B declarative table analysis
+
+- Used Codex to add CSV and XLSX table reading, table profiling, declarative filtering, declarative aggregation, stable sorting, chart specification generation, and an executable sales-analysis demo.
+- Kept table operations constrained to explicit operator branches and registered Pydantic parameter models. No model-generated Python, dynamic expressions, table query strings, chart files, UI code, Planner code, or persistence code were added.
+- Added Python 3.9-compatible dependencies for table processing and XLSX reading.
+- Verification commands: `.venv/bin/python -m pytest`, `.venv/bin/python -m examples.run_demo_workflow`, `.venv/bin/python -m examples.run_document_qa_workflow`, and `.venv/bin/python -m examples.run_data_analysis_workflow`.
+- Manual confirmation points: the sales workflow completes all seven registered steps, returns a ranked table and `chart_spec`, generates deterministic mock business insights, and runtime logs contain identifiers and statuses without table rows.
+- Installed versions: `pandas 2.2.3` and `openpyxl 3.1.5`.
+- Verification result: the complete suite passed with 95 tests, all three executable demos completed successfully, bytecode compilation passed, and the runtime log safety scan passed.
