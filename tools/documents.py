@@ -3,11 +3,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, Union
 
+from docx import Document as DocxDocument
+from pypdf import PdfReader
+
+from config import MAX_EXTRACTED_TEXT_CHARS, MAX_PDF_PAGES
 from core.workflow_schema import ExecutionContext
 
 
 TEXT_EXTENSIONS = frozenset({".txt", ".md"})
-DEFERRED_EXTENSIONS = frozenset({".pdf", ".docx"})
+PDF_EXTENSION = ".pdf"
+DOCX_EXTENSION = ".docx"
 
 
 class DocumentReadError(ValueError):
@@ -20,33 +25,95 @@ def read_document_file(file_path: Union[str, Path]) -> Dict[str, str]:
         raise DocumentReadError(f"Document file does not exist: {path}")
 
     extension = path.suffix.lower()
-    if extension in DEFERRED_EXTENSIONS:
-        raise DocumentReadError(
-            f"{extension.upper()} parsing is not supported in the current offline demo. "
-            "Full PDF and DOCX parsing will be added in stage 4A."
-        )
-    if extension not in TEXT_EXTENSIONS:
+    if extension in TEXT_EXTENSIONS:
+        content = _read_text_document(path)
+    elif extension == PDF_EXTENSION:
+        content = _read_pdf_document(path)
+    elif extension == DOCX_EXTENSION:
+        content = _read_docx_document(path)
+    else:
         raise DocumentReadError(
             f"Unsupported document format: {extension or '<none>'}. "
-            "The current offline demo supports TXT and MD files."
+            "Supported formats are TXT, MD, PDF, and DOCX."
         )
 
-    try:
-        content = path.read_text(encoding="utf-8")
-    except UnicodeDecodeError as exc:
-        raise DocumentReadError(
-            f"Document must use UTF-8 encoding in the current offline demo: {path.name}"
-        ) from exc
-    except OSError as exc:
-        raise DocumentReadError(f"Unable to read document: {path.name}") from exc
-
-    if not content.strip():
-        raise DocumentReadError(f"Document is empty: {path.name}")
+    _validate_extracted_text(path, content)
     return {
         "name": path.name,
         "path": str(path),
         "content": content,
     }
+
+
+def _read_text_document(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise DocumentReadError(
+            f"TXT and MD documents must use UTF-8 encoding: {path.name}"
+        ) from exc
+    except OSError as exc:
+        raise DocumentReadError(f"Unable to read document: {path.name}") from exc
+
+
+def _read_pdf_document(path: Path) -> str:
+    try:
+        reader = PdfReader(str(path))
+    except Exception as exc:
+        raise DocumentReadError(
+            f"PDF file is damaged or cannot be read: {path.name}"
+        ) from exc
+
+    if reader.is_encrypted:
+        raise DocumentReadError(
+            f"Encrypted PDF files are not supported: {path.name}"
+        )
+    if len(reader.pages) > MAX_PDF_PAGES:
+        raise DocumentReadError(
+            f"PDF file exceeds the {MAX_PDF_PAGES} page limit: {path.name}"
+        )
+
+    page_texts = []
+    try:
+        for page in reader.pages:
+            page_texts.append(page.extract_text() or "")
+    except Exception as exc:
+        raise DocumentReadError(
+            f"Unable to extract text from PDF file: {path.name}"
+        ) from exc
+
+    content = "\n\n".join(page_texts).strip()
+    if not content:
+        raise DocumentReadError(
+            f"PDF file has no readable text layer: {path.name}. "
+            "Scanned PDFs require OCR, which is not supported in the current MVP."
+        )
+    return content
+
+
+def _read_docx_document(path: Path) -> str:
+    try:
+        document = DocxDocument(str(path))
+    except Exception as exc:
+        raise DocumentReadError(
+            f"DOCX file is damaged or cannot be read: {path.name}"
+        ) from exc
+
+    parts = [paragraph.text.strip() for paragraph in document.paragraphs]
+    for table in document.tables:
+        for row in table.rows:
+            parts.extend(cell.text.strip() for cell in row.cells)
+    return "\n".join(part for part in parts if part)
+
+
+def _validate_extracted_text(path: Path, content: str) -> None:
+    if not content.strip():
+        raise DocumentReadError(f"Document has no readable text: {path.name}")
+    if len(content) > MAX_EXTRACTED_TEXT_CHARS:
+        raise DocumentReadError(
+            "Extracted document text exceeds the "
+            f"{MAX_EXTRACTED_TEXT_CHARS} character limit: {path.name}"
+        )
 
 
 def read_documents(file_paths: Sequence[Union[str, Path]]) -> List[Dict[str, str]]:

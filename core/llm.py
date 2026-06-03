@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import os
 import re
+import json
 from dataclasses import dataclass
-from typing import Any, Iterable, List, Mapping, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Union
+from urllib import error, request
+
+from config import LLM_REQUEST_TIMEOUT_SECONDS
 
 
 class LLMError(ValueError):
@@ -60,15 +64,165 @@ class MockLLMClient:
         bullet_lines = "\n".join(f"- {point}" for point in points)
         return f"{heading}:\n{summary}\n\nKey points:\n{bullet_lines}"
 
+    def answer_with_sources(
+        self,
+        *,
+        question: str,
+        retrieved_chunks: Sequence[Mapping[str, Any]],
+    ) -> str:
+        excerpts = [
+            " ".join(str(chunk.get("content", "")).split())
+            for chunk in retrieved_chunks
+            if str(chunk.get("content", "")).strip()
+        ]
+        if not excerpts:
+            raise LLMError("Cannot answer because no supporting excerpts were provided.")
+        return f"Answer based on the provided files:\n{excerpts[0]}"
 
-def get_llm_client(settings: Optional[LLMSettings] = None) -> MockLLMClient:
-    active_settings = settings or LLMSettings.from_environment()
-    if active_settings.mode != "mock":
-        raise LLMError(
-            "Only LLM_MODE=mock is supported in the current offline stage. "
-            "OpenAI-compatible API support will be added in stage 4A."
+
+class CompatibleLLMClient:
+    """Minimal OpenAI-compatible chat completions client."""
+
+    def __init__(self, settings: LLMSettings) -> None:
+        missing_fields = [
+            name
+            for name, value in (
+                ("LLM_API_KEY", settings.api_key),
+                ("LLM_BASE_URL", settings.base_url),
+                ("LLM_MODEL", settings.model),
+            )
+            if not value
+        ]
+        if missing_fields:
+            raise LLMError(
+                "LLM_MODE=compatible requires environment variables: "
+                f"{', '.join(missing_fields)}"
+            )
+        self.settings = settings
+
+    def generate_text(
+        self,
+        *,
+        task: str,
+        materials: Any,
+        bullet_count: Optional[int] = None,
+        max_length: Optional[int] = None,
+    ) -> str:
+        text = _normalize_materials(materials)
+        if not text:
+            raise LLMError("Cannot generate text because the provided materials are empty.")
+        constraints = []
+        if bullet_count is not None:
+            constraints.append(f"Include {bullet_count} key points.")
+        if max_length is not None:
+            constraints.append(f"Keep the summary within {max_length} characters.")
+        return self._chat_completion(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "Generate text using only the user-provided materials. "
+                        "Do not add unsupported facts."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Task: {task}\n"
+                        f"{' '.join(constraints)}\n\n"
+                        f"Materials:\n{text}"
+                    ),
+                },
+            ]
         )
-    return MockLLMClient()
+
+    def answer_with_sources(
+        self,
+        *,
+        question: str,
+        retrieved_chunks: Sequence[Mapping[str, Any]],
+    ) -> str:
+        source_text = "\n\n".join(
+            f"[Source {index}] {str(chunk.get('content', '')).strip()}"
+            for index, chunk in enumerate(retrieved_chunks, start=1)
+        )
+        if not source_text:
+            raise LLMError("Cannot answer because no supporting excerpts were provided.")
+        return self._chat_completion(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "Answer only from the provided source excerpts. "
+                        "Do not use outside knowledge or invent facts. "
+                        "If the excerpts are insufficient, state that clearly."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"Question:\n{question}\n\nSource excerpts:\n{source_text}",
+                },
+            ]
+        )
+
+    def _chat_completion(self, messages: List[Dict[str, str]]) -> str:
+        assert self.settings.base_url is not None
+        assert self.settings.api_key is not None
+        assert self.settings.model is not None
+        endpoint = f"{self.settings.base_url.rstrip('/')}/chat/completions"
+        body = json.dumps(
+            {
+                "model": self.settings.model,
+                "messages": messages,
+                "temperature": 0,
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
+        api_request = request.Request(
+            endpoint,
+            data=body,
+            headers={
+                "Authorization": f"Bearer {self.settings.api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with request.urlopen(
+                api_request,
+                timeout=LLM_REQUEST_TIMEOUT_SECONDS,
+            ) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except error.HTTPError as exc:
+            raise LLMError(
+                f"Compatible LLM request failed with HTTP status {exc.code}."
+            ) from exc
+        except error.URLError as exc:
+            raise LLMError("Compatible LLM request could not reach the configured service.") from exc
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise LLMError("Compatible LLM service returned an invalid JSON response.") from exc
+
+        try:
+            content = payload["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise LLMError(
+                "Compatible LLM service response does not contain assistant text."
+            ) from exc
+        if not isinstance(content, str) or not content.strip():
+            raise LLMError("Compatible LLM service returned an empty response.")
+        return content.strip()
+
+
+LLMClient = Union[MockLLMClient, CompatibleLLMClient]
+
+
+def get_llm_client(settings: Optional[LLMSettings] = None) -> LLMClient:
+    active_settings = settings or LLMSettings.from_environment()
+    if active_settings.mode == "mock":
+        return MockLLMClient()
+    if active_settings.mode == "compatible":
+        return CompatibleLLMClient(active_settings)
+    raise LLMError("LLM_MODE must be either 'mock' or 'compatible'.")
 
 
 def _normalize_materials(materials: Any) -> str:

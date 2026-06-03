@@ -5,7 +5,12 @@ from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple, Type
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from config import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE, DEFAULT_RETRIEVAL_TOP_K
+from config import (
+    DEFAULT_CHUNK_OVERLAP,
+    DEFAULT_CHUNK_SIZE,
+    DEFAULT_MIN_RETRIEVAL_SCORE,
+    DEFAULT_RETRIEVAL_TOP_K,
+)
 from core.workflow_schema import ValueType
 
 
@@ -43,7 +48,7 @@ class GenerateTextParams(BaseModel):
 class AnswerWithSourcesParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    min_score: float = Field(default=0.1, ge=0.0, le=1.0)
+    min_score: float = Field(default=DEFAULT_MIN_RETRIEVAL_SCORE, ge=0.0, le=1.0)
 
 
 class ReadTableParams(BaseModel):

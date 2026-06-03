@@ -34,14 +34,11 @@ def test_read_md_document_successfully(tmp_path: Path) -> None:
     assert result["content"] == "# Notes\n\nMarkdown content."
 
 
-@pytest.mark.parametrize("extension", [".pdf", ".docx"])
-def test_deferred_document_formats_return_clear_message(
-    tmp_path: Path, extension: str
-) -> None:
-    document = tmp_path / f"deferred{extension}"
+def test_unsupported_document_format_returns_clear_message(tmp_path: Path) -> None:
+    document = tmp_path / "unsupported.rtf"
     document.write_bytes(b"placeholder")
 
-    with pytest.raises(DocumentReadError, match="stage 4A"):
+    with pytest.raises(DocumentReadError, match="Supported formats"):
         read_document_file(document)
 
 

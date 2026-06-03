@@ -28,3 +28,13 @@ This document records how Codex is used during implementation.
 - Verification commands: `.venv/bin/python -m pytest` and `.venv/bin/python -m examples.run_demo_workflow`.
 - Manual confirmation points: all five examples load through the strict Pydantic schema, pass `validate_workflow`, and do not require new business handlers during stage 3.
 - Verification result: the complete test suite passed with 43 tests, and the stage 2 offline summary demo completed successfully as a regression check.
+
+## 2026-06-02 - Stage 4A document question answering
+
+- Used Codex to add PDF and DOCX text extraction, stable document chunking, local character n-gram TF-IDF retrieval, evidence-based answering, safe citations, and an executable document question-answering demo.
+- Added optional OpenAI-compatible chat completions support in `core/llm.py`. The default remains `LLM_MODE=mock`, so local demos and tests do not require an API key or network access.
+- Added Python 3.9-compatible dependencies for PDF parsing, DOCX parsing, and TF-IDF retrieval.
+- Verification commands: `.venv/bin/python -m pytest`, `.venv/bin/python -m examples.run_demo_workflow`, and `.venv/bin/python -m examples.run_document_qa_workflow`.
+- Manual confirmation points: document QA and FAQ workflows both execute through the same registered steps, relevant questions return safe citations without absolute paths, unrelated questions refuse to answer with `citations=[]`, and runtime logs contain no document text or API key.
+- Installed versions: `pypdf 6.12.2`, `python-docx 1.2.0`, and `scikit-learn 1.6.1`.
+- Verification result: the complete suite passed with 62 tests, both executable demos completed successfully, bytecode compilation passed, and the runtime log safety scan passed.
