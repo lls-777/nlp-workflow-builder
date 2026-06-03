@@ -6,6 +6,7 @@ from uuid import UUID
 
 import pytest
 
+import storage.file_store as file_store_module
 from storage.file_store import FileStore, FileStoreError
 
 
@@ -68,3 +69,24 @@ def test_file_store_rejects_upload_symlink_escape(
 
     with pytest.raises(FileStoreError, match="outside allowed root"):
         file_store.resolve_upload(link_path)
+
+
+def test_file_store_rejects_more_than_ten_uploads(file_store: FileStore) -> None:
+    uploads = tuple((f"file-{index}.txt", b"x") for index in range(11))
+
+    with pytest.raises(FileStoreError, match="最多只能上传 10 个文件"):
+        file_store.save_uploads(uploads=uploads)
+
+
+def test_file_store_rejects_total_upload_size_before_writing(
+    file_store: FileStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(file_store_module, "MAX_TOTAL_FILE_BYTES", 5)
+
+    with pytest.raises(FileStoreError, match="总计不能超过 50MB"):
+        file_store.save_uploads(
+            uploads=(("first.txt", b"123"), ("second.txt", b"456")),
+        )
+
+    assert not tuple(file_store.uploads_dir.iterdir())

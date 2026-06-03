@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, Optional, Sequence, Union
+from typing import Iterable, Optional, Sequence, Tuple, Union
 from uuid import UUID, uuid4
 
 from config import (
     ALLOWED_FILE_ROOTS,
     ARTIFACTS_DIR,
     MAX_SINGLE_FILE_BYTES,
+    MAX_TOTAL_FILE_BYTES,
+    MAX_UPLOAD_FILES,
     SUPPORTED_UPLOAD_EXTENSIONS,
     UPLOADS_DIR,
 )
@@ -40,12 +42,52 @@ class FileStore:
         content: bytes,
         file_id: Optional[UUID] = None,
     ) -> Path:
+        self._validate_upload_batch(
+            uploads=((original_filename, content),),
+            existing_paths=(),
+        )
+        return self._write_upload(
+            original_filename=original_filename,
+            content=content,
+            file_id=file_id,
+        )
+
+    def save_uploads(
+        self,
+        *,
+        uploads: Sequence[Tuple[str, bytes]],
+        existing_paths: Sequence[Union[str, Path]] = (),
+    ) -> Sequence[Path]:
+        normalized_uploads = tuple(uploads)
+        self._validate_upload_batch(
+            uploads=normalized_uploads,
+            existing_paths=existing_paths,
+        )
+        return tuple(
+            self._write_upload(
+                original_filename=original_filename,
+                content=content,
+            )
+            for original_filename, content in normalized_uploads
+        )
+
+    def resolve_uploads(
+        self,
+        stored_paths: Sequence[Union[str, Path]],
+    ) -> Sequence[Path]:
+        resolved_paths = tuple(self.resolve_upload(path) for path in stored_paths)
+        _validate_file_limits(resolved_paths)
+        return resolved_paths
+
+    def _write_upload(
+        self,
+        *,
+        original_filename: str,
+        content: bytes,
+        file_id: Optional[UUID] = None,
+    ) -> Path:
         if not isinstance(content, bytes):
             raise FileStoreError("Uploaded file content must be bytes.")
-        if len(content) > MAX_SINGLE_FILE_BYTES:
-            raise FileStoreError(
-                f"Uploaded file exceeds the {MAX_SINGLE_FILE_BYTES} byte limit."
-            )
         extension = _validated_extension(original_filename)
         destination = (self.uploads_dir / f"{file_id or uuid4()}{extension}").resolve()
         _require_within_root(destination, self.uploads_dir)
@@ -54,6 +96,28 @@ class FileStore:
         except OSError as exc:
             raise FileStoreError("Unable to save uploaded file.") from exc
         return destination
+
+    def _validate_upload_batch(
+        self,
+        *,
+        uploads: Sequence[Tuple[str, bytes]],
+        existing_paths: Sequence[Union[str, Path]],
+    ) -> None:
+        resolved_existing = tuple(
+            self.resolve_upload(path) for path in existing_paths
+        )
+        upload_sizes = []
+        for original_filename, content in uploads:
+            if not isinstance(content, bytes):
+                raise FileStoreError("Uploaded file content must be bytes.")
+            _validated_extension(original_filename)
+            if len(content) > MAX_SINGLE_FILE_BYTES:
+                raise FileStoreError("单个文件不能超过 20MB。")
+            upload_sizes.append(len(content))
+        total_count = len(resolved_existing) + len(uploads)
+        total_bytes = sum(path.stat().st_size for path in resolved_existing)
+        total_bytes += sum(upload_sizes)
+        _validate_batch_limits(total_count=total_count, total_bytes=total_bytes)
 
     def copy_allowed_upload(
         self,
@@ -125,3 +189,20 @@ def _require_within_root(path: Path, root: Path) -> None:
         path.resolve().relative_to(root.resolve())
     except ValueError as exc:
         raise FileStoreError(f"File path is outside allowed root: {path}") from exc
+
+
+def _validate_file_limits(paths: Sequence[Path]) -> None:
+    for path in paths:
+        if path.stat().st_size > MAX_SINGLE_FILE_BYTES:
+            raise FileStoreError("单个文件不能超过 20MB。")
+    _validate_batch_limits(
+        total_count=len(paths),
+        total_bytes=sum(path.stat().st_size for path in paths),
+    )
+
+
+def _validate_batch_limits(*, total_count: int, total_bytes: int) -> None:
+    if total_count > MAX_UPLOAD_FILES:
+        raise FileStoreError("最多只能上传 10 个文件。")
+    if total_bytes > MAX_TOTAL_FILE_BYTES:
+        raise FileStoreError("上传文件总计不能超过 50MB。")

@@ -57,3 +57,14 @@ This document records how Codex is used during implementation.
 - Verification commands: `.venv/bin/python -m pytest`, `.venv/bin/python -m examples.run_demo_workflow`, `.venv/bin/python -m examples.run_document_qa_workflow`, and `.venv/bin/python -m examples.run_data_analysis_workflow`.
 - Manual confirmation points: sqlite3 contains only the four scoped tables, uploaded files receive UUID names, path traversal and symlink escapes are rejected, weekly requests require one-time fallback acceptance, workflow feedback creates `version + 1`, and a new document question reuses the current workflow version while creating a new run.
 - Verification result: the complete suite passed with 115 tests, all three executable demos completed successfully, project-source bytecode compilation passed under Python 3.9, and `git diff --check` passed.
+
+## 2026-06-02 - Stage 5 Streamlit MVP app
+
+- Used Codex to add a Streamlit web app that accepts natural-language requests and uploaded files, presents plain-language plans, asks for confirmation, executes through the Orchestrator service, and renders text, tables, citations, and chart specifications.
+- Kept the UI boundary narrow: `app.py` calls Orchestrator methods only and does not assemble workflows or call business tools directly. Technical implementation concepts remain hidden from ordinary page content.
+- Added structured final-result values for rendering, a clarification prompt, localized result labels, full rerun after feedback, new-request handling after completion, and upload limits aligned with backend validation: 20MB per file, 10 files maximum, and 50MB total.
+- Added an execution precheck for declarative table analysis: requests without a CSV or XLSX file now stop before creating a run and return a user-readable prompt to upload a table file.
+- Verification commands: `.venv/bin/python -m pytest`, `.venv/bin/python -m examples.run_demo_workflow`, `.venv/bin/python -m examples.run_document_qa_workflow`, `.venv/bin/python -m examples.run_data_analysis_workflow`, and `PYTHONPYCACHEPREFIX=.cache/pycache .venv/bin/python -m compileall .`.
+- Manual confirmation points: the local app starts only on `localhost`, the initial page does not show an error state, completed sessions can accept a new requirement, TXT/MD-only table-analysis requests receive a CSV/XLSX prompt, and sales analysis with `sample_sales.csv` renders a ranked table, chart, and business insights.
+- Installed version: `streamlit 1.48.0`.
+- Verification result: the complete suite passed with 129 tests, all three executable demos completed successfully, bytecode compilation passed under Python 3.9, and `git diff --check` passed.

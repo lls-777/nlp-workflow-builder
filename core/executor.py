@@ -494,6 +494,9 @@ def execute_workflow(
             StepOutput(
                 output_name=binding.output_name,
                 value_type=value_type,
+                label=binding.label,
+                display_type=binding.display_type,
+                value=context.step_outputs[binding.step_id][binding.output_name],
                 preview=_preview(
                     context.step_outputs[binding.step_id][binding.output_name]
                 ),

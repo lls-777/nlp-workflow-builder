@@ -1,7 +1,5 @@
-Prepare a plain-language execution plan for the user.
+我会按以下顺序处理：
 
-Scenario: {scenario}
-Steps: {steps}
-Source policy: {source_policy}
+{steps}
 
-Keep the explanation concise. Describe only capabilities that can be executed now.
+本次只使用你提供的文件。确认后立即开始处理。

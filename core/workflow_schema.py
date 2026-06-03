@@ -121,6 +121,9 @@ class StepOutput(BaseModel):
 
     output_name: str = Field(min_length=1)
     value_type: ValueType
+    label: Optional[str] = None
+    display_type: Optional[DisplayType] = None
+    value: Optional[Any] = None
     persistent_ref: Optional[str] = None
     preview: Optional[str] = None
     artifact_id: Optional[str] = None

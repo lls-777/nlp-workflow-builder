@@ -338,6 +338,9 @@ def test_execute_workflow_runs_placeholder_handlers_in_order(
         StepStatus.COMPLETED,
     ]
     assert result.final_outputs[0].preview == "Short summary"
+    assert result.final_outputs[0].label == "Summary"
+    assert result.final_outputs[0].display_type.value == "text"
+    assert result.final_outputs[0].value == "Short summary"
 
 
 def test_execute_workflow_marks_remaining_steps_skipped_after_failure(

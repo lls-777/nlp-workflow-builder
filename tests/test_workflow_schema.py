@@ -109,3 +109,13 @@ def test_orchestrator_state_allows_new_run_after_completion() -> None:
         )
         == OrchestratorState.RUNNING
     )
+
+
+def test_orchestrator_state_allows_new_workflow_after_completion() -> None:
+    assert (
+        transition_state(
+            OrchestratorState.COMPLETED,
+            OrchestratorEvent.USER_REQUESTED_NEW_WORKFLOW,
+        )
+        == OrchestratorState.COLLECTING_REQUIREMENTS
+    )

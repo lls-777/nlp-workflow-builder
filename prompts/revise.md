@@ -1,7 +1,7 @@
-Prepare a revised plain-language execution plan.
+已根据你的反馈更新为第 {version} 版方案。
 
-Workflow version: {version}
-User feedback: {feedback}
-Steps: {steps}
+调整要求：{feedback}
 
-Explain that the revised workflow will run again from the beginning after confirmation.
+处理顺序：{steps}
+
+确认后会从头重新处理。

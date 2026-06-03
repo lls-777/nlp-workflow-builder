@@ -13,6 +13,19 @@ from core.workflow_schema import Workflow
 
 WORKFLOW_TEMPLATE_DIR = PROJECT_ROOT / "examples" / "workflows"
 PROMPT_DIR = PROJECT_ROOT / "prompts"
+STEP_DESCRIPTIONS = {
+    "read_document": "读取文件内容",
+    "chunk_document": "整理文件片段",
+    "retrieve_chunks": "查找相关内容",
+    "answer_with_sources": "根据文件回答并附上依据",
+    "read_table": "读取表格",
+    "profile_table": "概览表格结构",
+    "filter_table": "筛选符合条件的数据",
+    "aggregate_table": "汇总关键指标",
+    "sort_table": "整理结果顺序",
+    "render_chart": "准备图表",
+    "generate_text": "生成文字结果",
+}
 
 
 class Scenario(str, Enum):
@@ -72,6 +85,7 @@ class Planner:
             scenario=scenario,
             needs_more_info=bool(questions),
             questions=tuple(questions[:3]),
+            message=self._render_clarification(questions) if questions else None,
         )
 
     def create_workflow(
@@ -113,7 +127,7 @@ class Planner:
         self._apply_text_generation_feedback(payload, feedback)
         revised_workflow = Workflow.model_validate(payload)
         scenario = self._scenario_from_workflow(workflow)
-        steps = " -> ".join(step.step_type for step in revised_workflow.steps)
+        steps = self._describe_steps(revised_workflow)
         prompt = self._load_prompt("revise.md")
         plan_text = prompt.format(
             version=revised_workflow.version,
@@ -190,11 +204,23 @@ class Planner:
 
     def _render_plan(self, workflow: Workflow, scenario: Scenario) -> str:
         prompt = self._load_prompt("plan.md")
-        steps = " -> ".join(step.title or step.step_type for step in workflow.steps)
+        steps = self._describe_steps(workflow)
         return prompt.format(
             scenario=scenario.value,
             steps=steps,
             source_policy=workflow.source_policy.value,
+        ).strip()
+
+    def _describe_steps(self, workflow: Workflow) -> str:
+        return " -> ".join(
+            STEP_DESCRIPTIONS.get(step.step_type, step.title or step.step_type)
+            for step in workflow.steps
+        )
+
+    def _render_clarification(self, questions: Sequence[str]) -> str:
+        prompt = self._load_prompt("clarify.md")
+        return prompt.format(
+            questions="\n".join(f"- {question}" for question in questions)
         ).strip()
 
     def _load_prompt(self, file_name: str) -> str:

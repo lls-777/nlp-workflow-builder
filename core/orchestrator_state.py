@@ -23,6 +23,7 @@ class OrchestratorEvent(str, Enum):
     USER_REQUESTED_CHANGE = "user_requested_change"
     USER_RETRY_REQUESTED = "user_retry_requested"
     USER_REQUESTED_NEW_RUN = "user_requested_new_run"
+    USER_REQUESTED_NEW_WORKFLOW = "user_requested_new_workflow"
     UNSUPPORTED_REQUEST = "unsupported_request"
     USER_REFRAMED_REQUEST = "user_reframed_request"
 
@@ -74,6 +75,14 @@ TRANSITIONS: Dict[TransitionKey, OrchestratorState] = {
         OrchestratorState.COMPLETED,
         OrchestratorEvent.USER_REQUESTED_NEW_RUN,
     ): OrchestratorState.RUNNING,
+    (
+        OrchestratorState.COMPLETED,
+        OrchestratorEvent.USER_REQUESTED_NEW_WORKFLOW,
+    ): OrchestratorState.COLLECTING_REQUIREMENTS,
+    (
+        OrchestratorState.FAILED,
+        OrchestratorEvent.USER_REQUESTED_NEW_WORKFLOW,
+    ): OrchestratorState.COLLECTING_REQUIREMENTS,
     (
         OrchestratorState.UNSUPPORTED,
         OrchestratorEvent.USER_REFRAMED_REQUEST,
