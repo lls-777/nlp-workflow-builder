@@ -12,3 +12,11 @@ This document records how Codex is used during implementation.
 
 - Used Codex to implement the initial Python package structure, strict Pydantic v2 workflow schemas, Orchestrator state transitions, Step Registry declarations, Executor validation, and focused unit tests.
 - Kept business handlers out of the Registry and exposed a `handler_map` placeholder so real tools can be added incrementally from stage 2.
+
+## 2026-06-02 - Stage 2 offline summary workflow
+
+- Used Codex to add the deterministic mock LLM adapter, TXT and MD document readers, summary handler, lightweight runtime logging, executable demo workflow, and focused tests.
+- Kept the stage scoped to `read_document -> generate_text`; PDF and DOCX return clear deferred-support messages, and no real LLM API, retrieval, table analysis, or UI code was added.
+- Verification commands: `.venv/bin/python -m pytest` and `.venv/bin/python -m examples.run_demo_workflow`.
+- Manual confirmation points: the demo validates before execution, both steps complete, a stable summary is printed, and `logs/app.log` contains identifiers and statuses without document contents.
+- Verification result: the complete test suite passed, the demo completed successfully, and the runtime log content check passed.

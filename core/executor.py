@@ -14,6 +14,7 @@ from config import (
     MAX_WORKFLOW_STEPS,
     SUPPORTED_UPLOAD_EXTENSIONS,
 )
+from core.logging_utils import log_step_status, log_workflow_status
 from core.step_registry import STEP_REGISTRY, StepDefinition, StepRegistry
 from core.workflow_schema import (
     BindingSource,
@@ -360,6 +361,12 @@ def execute_workflow(
             allowed_file_roots=allowed_file_roots,
         )
     except WorkflowValidationError as exc:
+        log_workflow_status(
+            workflow_id=workflow.id,
+            run_id=context.run_id,
+            status=WorkflowStatus.FAILED,
+            error_summary=exc,
+        )
         return WorkflowResult(
             workflow_id=workflow.id,
             workflow_version=workflow.version,
@@ -368,12 +375,29 @@ def execute_workflow(
             error_message=str(exc),
         )
 
+    log_workflow_status(
+        workflow_id=workflow.id,
+        run_id=context.run_id,
+        status=WorkflowStatus.VALIDATED,
+    )
+    log_workflow_status(
+        workflow_id=workflow.id,
+        run_id=context.run_id,
+        status=WorkflowStatus.RUNNING,
+    )
     step_runs: List[StepRunResult] = []
     failed_message: Optional[str] = None
     for index, step in enumerate(workflow.steps):
         definition = registry.get(step.step_type)
         assert definition is not None
         started_at = _utc_now()
+        log_step_status(
+            workflow_id=workflow.id,
+            run_id=context.run_id,
+            step_id=step.id,
+            step_type=step.step_type,
+            status=StepStatus.RUNNING,
+        )
         try:
             handler = handlers.get(definition.handler_name)
             if handler is None:
@@ -384,6 +408,13 @@ def execute_workflow(
             raw_outputs = handler(_resolve_inputs(step, context), params, context)
             outputs = _build_step_outputs(definition, raw_outputs)
             context.step_outputs[step.id] = dict(raw_outputs)
+            log_step_status(
+                workflow_id=workflow.id,
+                run_id=context.run_id,
+                step_id=step.id,
+                step_type=step.step_type,
+                status=StepStatus.COMPLETED,
+            )
             step_runs.append(
                 StepRunResult(
                     step_id=step.id,
@@ -399,6 +430,14 @@ def execute_workflow(
             )
         except Exception as exc:  # Handler errors become user-visible run failures.
             failed_message = str(exc)
+            log_step_status(
+                workflow_id=workflow.id,
+                run_id=context.run_id,
+                step_id=step.id,
+                step_type=step.step_type,
+                status=StepStatus.FAILED,
+                error_summary=exc,
+            )
             step_runs.append(
                 StepRunResult(
                     step_id=step.id,
@@ -409,6 +448,14 @@ def execute_workflow(
                     finished_at=_utc_now(),
                 )
             )
+            for remaining in workflow.steps[index + 1 :]:
+                log_step_status(
+                    workflow_id=workflow.id,
+                    run_id=context.run_id,
+                    step_id=remaining.id,
+                    step_type=remaining.step_type,
+                    status=StepStatus.SKIPPED,
+                )
             step_runs.extend(
                 StepRunResult(
                     step_id=remaining.id,
@@ -421,6 +468,12 @@ def execute_workflow(
             break
 
     if failed_message is not None:
+        log_workflow_status(
+            workflow_id=workflow.id,
+            run_id=context.run_id,
+            status=WorkflowStatus.FAILED,
+            error_summary=failed_message,
+        )
         return WorkflowResult(
             workflow_id=workflow.id,
             workflow_version=workflow.version,
@@ -447,6 +500,11 @@ def execute_workflow(
             )
         )
 
+    log_workflow_status(
+        workflow_id=workflow.id,
+        run_id=context.run_id,
+        status=WorkflowStatus.COMPLETED,
+    )
     return WorkflowResult(
         workflow_id=workflow.id,
         workflow_version=workflow.version,
